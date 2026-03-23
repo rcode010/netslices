@@ -1,5 +1,7 @@
 import { useState } from "react";
 import type { Mode } from "../types/subnet";
+import { subnetCalculator } from "../utils/subnetCalculator.ts";
+import { parseInput } from "../utils/cidrParser.ts";
 
 interface InputFormProps {
   onCalculate: (input: string, value: number, mode: Mode) => void;
@@ -10,12 +12,27 @@ export const InputForm = ({ onCalculate }: InputFormProps) => {
   const [value, setValue] = useState<number | "">("");
   const [mode, setMode] = useState<Mode>("subnets");
   const [error, setError] = useState("");
+  const [result, setResult] = useState<CalculationResult | null>(null);
 
   const handleCalculate = () => {
     setError("");
     if (!input.trim()) return setError("Enter a network address");
     if (!value) return setError("Enter a value");
-    onCalculate(input.trim(), Number(value), mode);
+      const result = parseInput(input);
+
+      if (typeof result === "string") {
+        setError(result);
+        return;
+      }
+
+      const calculation = subnetCalculator(
+        result.Ip.split("."),
+        result.prefix,
+        mode,
+        Number(value),
+      );
+      console.log(calculation)
+      setResult(calculation);
   };
 
   return (
@@ -49,7 +66,10 @@ export const InputForm = ({ onCalculate }: InputFormProps) => {
         }}
       >
         {/* Mode Toggle */}
-        <div className="flex items-center gap-1 p-1 rounded-xl w-fit" style={{ background: "#0f172a" }}>
+        <div
+          className="flex items-center gap-1 p-1 rounded-xl w-fit"
+          style={{ background: "#0f172a" }}
+        >
           {(["subnets", "hosts"] as Mode[]).map((m) => (
             <button
               key={m}
@@ -57,9 +77,13 @@ export const InputForm = ({ onCalculate }: InputFormProps) => {
               className="px-5 py-2 rounded-lg text-sm font-medium transition-all duration-200"
               style={{
                 fontFamily: "'Space Mono', monospace",
-                background: mode === m ? "rgba(6, 182, 212, 0.15)" : "transparent",
+                background:
+                  mode === m ? "rgba(6, 182, 212, 0.15)" : "transparent",
                 color: mode === m ? "#06b6d4" : "#64748b",
-                border: mode === m ? "1px solid rgba(6, 182, 212, 0.3)" : "1px solid transparent",
+                border:
+                  mode === m
+                    ? "1px solid rgba(6, 182, 212, 0.3)"
+                    : "1px solid transparent",
               }}
             >
               {m === "subnets" ? "# Subnets" : "# Hosts/subnet"}
