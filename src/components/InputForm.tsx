@@ -1,7 +1,6 @@
 import { useState } from "react";
-import type { Mode } from "../types/subnet";
-import { subnetCalculator } from "../utils/subnetCalculator.ts";
-import { parseInput } from "../utils/cidrParser.ts";
+import type {  Mode } from "../types/subnet";
+
 
 interface InputFormProps {
   onCalculate: (input: string, value: number, mode: Mode) => void;
@@ -12,28 +11,13 @@ export const InputForm = ({ onCalculate }: InputFormProps) => {
   const [value, setValue] = useState<number | "">("");
   const [mode, setMode] = useState<Mode>("subnets");
   const [error, setError] = useState("");
-  const [result, setResult] = useState<CalculationResult | null>(null);
 
   const handleCalculate = () => {
-    setError("");
-    if (!input.trim()) return setError("Enter a network address");
-    if (!value) return setError("Enter a value");
-      const result = parseInput(input);
-
-      if (typeof result === "string") {
-        setError(result);
-        return;
-      }
-
-      const calculation = subnetCalculator(
-        result.Ip.split("."),
-        result.prefix,
-        mode,
-        Number(value),
-      );
-      console.log(calculation)
-      setResult(calculation);
-  };
+  setError("");
+  if (!input.trim()) return setError("Enter a network address");
+  if (!value) return setError("Enter a value");
+  onCalculate(input, Number(value), mode);
+};
 
   return (
     <div className="w-full max-w-2xl mx-auto">
@@ -135,7 +119,7 @@ export const InputForm = ({ onCalculate }: InputFormProps) => {
             onChange={(e) =>
               setValue(e.target.value === "" ? "" : Number(e.target.value))
             }
-            placeholder={mode === "subnets" ? "e.g. 6" : "e.g. 30"}
+            placeholder={mode === "subnets" ? "e.g. 4" : "e.g. 30"}
             min={1}
             className="w-full rounded-xl px-4 py-3 text-sm outline-none transition-all duration-200"
             style={{
