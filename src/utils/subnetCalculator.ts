@@ -1,51 +1,65 @@
 import type { Mode, CalculationResult, SubnetInfo } from "../types/subnet";
 
+/** Builds a subnet mask string from a prefix length (e.g. 24 → "255.255.255.0") */
+const buildSubnetMask = (prefix: number): string => {
+  let mask = "";
+  let remaining = prefix;
+
+  for (let octet = 0; octet < 4; octet++) {
+    const bits = Math.min(remaining, 8);
+    mask += (256 - Math.pow(2, 8 - bits)) + (octet < 3 ? "." : "");
+    remaining = Math.max(0, remaining - 8);
+  }
+
+  return mask;
+};
+
 export const subnetCalculator = (
   ip: string[],
   prefix: number = 0,
   mode: Mode,
   value: number,
 ): CalculationResult => {
-  let subnets: SubnetInfo[] = [];
+  // Determine how many bits to borrow to satisfy the requested number of subnets/hosts
   let borrowedBits = 0;
   while (Math.pow(2, borrowedBits) < value) {
     borrowedBits++;
   }
-  const newPrefix: number = borrowedBits + prefix;
-  let temp: string = "";
-  let newSubnetMask: string = "";
 
-  let dotValue: number = 7;
-  for (let i = 0; i <= 31; i++) {
-    if (i < newPrefix) {
-      temp += 1;
-    } else {
-      temp += 0;
-    }
-    if (i == dotValue) {
-      newSubnetMask += parseInt(temp, 2) + ".";
-      temp = "";
-      dotValue += 8;
-    }
+  const newPrefix = borrowedBits + prefix;
+  const subnetSize = Math.pow(2, 32 - newPrefix);
+  const totalSubnets = Math.pow(2, borrowedBits);
+  const newSubnetMask = buildSubnetMask(newPrefix);
+
+  // Work on a local copy so the original input array is never mutated
+  const octets = [...ip].map(Number);
+  const subnets: SubnetInfo[] = [];
+
+  for (let i = 0; i < totalSubnets; i++) {
+    const networkAddress = octets.join(".");
+
+    octets[3] += 1;
+    const firstHost = octets.join(".");
+
+    octets[3] += subnetSize - 3;
+    const lastHost = octets.join(".");
+
+    octets[3] += 1;
+    const broadcastAddress = octets.join(".");
+
+    subnets.push({
+      networkAddress,
+      subnetMask: newSubnetMask,
+      cidrPrefix: newPrefix,
+      firstHost,
+      lastHost,
+      broadcastAddress,
+      usableHosts: subnetSize - 2,
+    });
+
+    octets[3] += 1;
   }
-  newSubnetMask = newSubnetMask.slice(0, -1);
-  const increment: number = Math.pow(2, 32 - newPrefix);
-  for (let i = 0; i < Math.pow(2, borrowedBits); i++) {
-    subnets[i] = {} as SubnetInfo;
-    subnets[i].networkAddress = ip.join(".");
-    subnets[i].subnetMask = newSubnetMask;
-    ip[ip.length - 1] = String(Number(ip[ip.length - 1]) + 1);
-    subnets[i].firstHost = ip.join(".");
-    ip[ip.length - 1] = String(Number(ip[ip.length - 1]) + increment - 3);
 
-    subnets[i].lastHost = ip.join(".");
-    ip[ip.length - 1] = String(Number(ip[ip.length - 1]) + 1);
-
-    subnets[i].broadcastAddress = ip.join(".");
-
-    subnets[i].usableHosts = Math.pow(2, 32 - newPrefix) - 2;
-    ip[ip.length - 1] = String(Number(ip[ip.length - 1]) + 1);
-  }
   return {
     mode,
     originalNetwork: ip.join("."),
@@ -53,7 +67,7 @@ export const subnetCalculator = (
     borrowedBits,
     newPrefix,
     newMask: newSubnetMask,
-    totalSubnets: Math.pow(2, borrowedBits),
+    totalSubnets,
     subnets,
     steps: [],
   };
